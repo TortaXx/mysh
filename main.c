@@ -89,9 +89,8 @@ int sh_execute(char **args)
     } else if (pid == 0) {
         if (execvp(args[0], args) == -1) {
             perror("mysh");
-            return 1; // Exit  from child process
         }
-        return 1;
+        return -1;
     } else {
         do {
             waitpid(pid, &wait_status, WUNTRACED);
@@ -100,7 +99,7 @@ int sh_execute(char **args)
     return 0;
 }
 
-int sh_loop()
+void sh_loop()
 {
     while (true) {
         printf("$ ");
@@ -109,11 +108,11 @@ int sh_loop()
         char *line = read_line(&eof_entered);
         if (line == NULL) {
             putchar('\n');
-            return 1;
+            return;
         }
-        if (line[0] == '\0') {
+        if (line[0] == '\0') { // so that execvp doesn't cause trouble
             free(line);
-            continue; // so that execvp doesn't cause trouble
+            continue;
         }
         if (eof_entered) {
             putchar('\n');
@@ -121,14 +120,14 @@ int sh_loop()
         char **args = line_split(line);
         if (args == NULL) {
             free(line);
-            return 1;
+            return;
         }
-        sh_execute(args);
+        int exec_ret = sh_execute(args);
 
         free(line);
         free(args);
-        if (eof_entered) {
-            return 0;
+        if (eof_entered || exec_ret == -1) {
+            return;
         }
     }
 }
