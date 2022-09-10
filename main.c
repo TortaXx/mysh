@@ -9,7 +9,7 @@
 
 #define BUFF_SIZE 8
 
-char *read_line()
+char *read_line(bool *eof_entered)
 {
     char *buffer = malloc(sizeof(char) * BUFF_SIZE);
     if (buffer == NULL) {
@@ -17,40 +17,45 @@ char *read_line()
         return NULL;
     }
     int c = getchar();
-    int position = 0;
-    int allocated = BUFF_SIZE;
+    size_t position = 0;
+    size_t allocated = BUFF_SIZE;
 
     while (c != EOF && c != '\n') {
         buffer[position] = c;
         position++;
 
         if (position >= allocated) {
-            buffer = realloc(buffer, allocated + BUFF_SIZE); // no need for keeping old pointer in case of error, we don't want to store partial lines;
-            if (buffer == NULL) {
+            char *new_buffer = realloc(buffer, allocated + BUFF_SIZE); // no need for keeping old pointer in case of error, we don't want to store partial lines;
+            if (new_buffer == NULL) {
                 fprintf(stderr, "Allocation error");
+                free(buffer);
                 return NULL;
             }
+            buffer = new_buffer;
             allocated += BUFF_SIZE;
         }
         c = getchar();
     }
-    if  (position == 0 && c == EOF) {
-        free(buffer);
-        return NULL;
+    if (c == EOF) {
+        *eof_entered = true;
+        if (position == 0) {
+            free(buffer);
+            return NULL;
+        }
     }
     buffer[position] = '\0';
     return buffer;
 }
 
-char **line_split(char *line) // only splits (no quotes...) on whitespace for now
+char **line_split(char *line) // only splits on whitespace for now (no quotes...)
 {
     char **words = malloc(sizeof(char*) * BUFF_SIZE);
     if (words == NULL) {
         fprintf(stderr, "Allocation error");
         return NULL;
     }
-    int position = 0;
-    int allocated = BUFF_SIZE;
+    size_t position = 0;
+    size_t allocated = BUFF_SIZE;
     char *word = strtok(line, " \t\n\n\a");
 
     while (word != NULL) {
@@ -58,11 +63,13 @@ char **line_split(char *line) // only splits (no quotes...) on whitespace for no
         position++;
 
         if (position >= allocated) {
-            words = realloc(words, (allocated + BUFF_SIZE) * sizeof(char*));
-            if (words == NULL) {
+            char **new_words = realloc(words, (allocated + BUFF_SIZE) * sizeof(char*));
+            if (new_words == NULL) {
                 fprintf(stderr, "Allocation error");
+                free(words);
                 return NULL;
             }
+            words = new_words;
             allocated += BUFF_SIZE;
         }
         word = strtok(NULL, " \t\n");
@@ -82,8 +89,9 @@ int sh_execute(char **args)
     } else if (pid == 0) {
         if (execvp(args[0], args) == -1) {
             perror("mysh");
-            exit(EXIT_FAILURE); // Exit from child process
+            return 1; // Exit  from child process
         }
+        return 1;
     } else {
         do {
             waitpid(pid, &wait_status, WUNTRACED);
@@ -96,18 +104,33 @@ int sh_loop()
 {
     while (true) {
         printf("$ ");
-        char *line = read_line();
+        bool eof_entered = false;
+
+        char *line = read_line(&eof_entered);
         if (line == NULL) {
-            printf("EOF");
             putchar('\n');
             return 1;
         }
+        if (line[0] == '\0') {
+            free(line);
+            continue; // so that execvp doesn't cause trouble
+        }
+        if (eof_entered) {
+            putchar('\n');
+        }
         char **args = line_split(line);
+        if (args == NULL) {
+            free(line);
+            return 1;
+        }
         sh_execute(args);
+
         free(line);
         free(args);
+        if (eof_entered) {
+            return 0;
+        }
     }
-    return 0;
 }
 
 
