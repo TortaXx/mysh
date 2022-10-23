@@ -1,3 +1,4 @@
+#include "builtins.h"
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -6,8 +7,18 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+#define BUFF_SIZE 512
 
-#define BUFF_SIZE 8
+
+struct builtin_pair {
+    const char *name;
+    int (*fun)(char **args);
+};
+
+struct builtin_pair builtin_dict[BUILTIN_COUNT] = {
+        { "cd", &cd_builtin },
+        { "exit", &exit_builtin },
+};
 
 char *read_line(bool *eof_entered)
 {
@@ -78,7 +89,7 @@ char **line_split(char *line) // only splits on whitespace for now (no quotes...
     return words;
 }
 
-int sh_execute(char **args)
+int sh_run_command(char **args)
 {
     pid_t pid = fork();
     int wait_status = 0;
@@ -97,6 +108,16 @@ int sh_execute(char **args)
         } while (WIFEXITED(wait_status) && WIFSTOPPED(wait_status));
     }
     return 0;
+}
+
+int sh_execute(char **args)
+{
+    for (int i = 0; i < BUILTIN_COUNT; i++) {
+        if (strcmp(args[0], builtin_dict[i].name) == 0) {
+            return builtin_dict[i].fun(args);
+        }
+    }
+    return sh_run_command(args);
 }
 
 void sh_loop()
