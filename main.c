@@ -18,6 +18,7 @@ struct builtin_pair {
 struct builtin_pair builtin_dict[BUILTIN_COUNT] = {
         { "cd", &cd_builtin },
         { "exit", &exit_builtin },
+        {"pwd", &pwd_builtin},
 };
 
 char *read_line(bool *eof_entered)

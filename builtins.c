@@ -4,6 +4,7 @@
 #include <pwd.h>
 #include <unistd.h>
 
+#define PATH_MAX 4096
 #define UNUSED(x) (void)(x)
 
 
@@ -32,4 +33,23 @@ int exit_builtin(char **args)
 {
     UNUSED(args);
     return -1;
+}
+
+int pwd_builtin(char **args)
+{
+    UNUSED(args);
+    char *buffer = malloc(sizeof(char) * PATH_MAX);
+    if (buffer == NULL) {
+        perror("mysh: cd");
+        return 1;
+    }
+    if (getcwd(buffer, PATH_MAX) == NULL) {
+        perror("mysh: cd");
+        free(buffer);
+        return 1;
+    }
+    printf("%s\n", buffer);
+    free(buffer);
+    return 0;
+
 }
