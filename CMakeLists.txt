@@ -9,4 +9,4 @@ include_directories(.)
 
 add_executable(mysh
         main.c
-        main.h)
+        builtins.c)
