@@ -106,7 +106,7 @@ int sh_run_command(char **args)
     } else {
         do {
             waitpid(pid, &wait_status, WUNTRACED);
-        } while (WIFEXITED(wait_status) && WIFSTOPPED(wait_status));
+        } while (!WIFEXITED(wait_status) && !WIFSTOPPED(wait_status));
     }
     return 0;
 }
