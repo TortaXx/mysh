@@ -90,31 +90,25 @@ struct cmd_sequence *line_split(char *line) // splits line on `;`, `&&` and `||`
     size_t cmd_count = 1;
     size_t allocated = 2;
     while (line[i] != '\0') {
-        if (((line[i] == '&' || line[i] == '|') && line[i + 1] != '\0') ||
+        if (((line[i] == '&' || line[i] == '|') && line[i] == line[i + 1]) ||
             line[i] == ';') {
-            if (line[i + 1] == line[i]) {
-                cmd_separators[cmd_count - 1] = line[i];
-                line[i] = '\0';
-                line[i + 1] = ' ';
-                curr_cmd_start = line + i + 1;
-                commands[cmd_count] = curr_cmd_start;
-                cmd_count++;
-            } else if (line[i] == ';') {
-                cmd_separators[cmd_count - 1] = line[i];
-                line[i] = '\0';
-                curr_cmd_start = line + i + 1;
-                commands[cmd_count] = curr_cmd_start;
-                cmd_count++;
-            } else if (line[cmd_count + 1] != line[cmd_count] &&
-                (line[cmd_count + 1] == '&' || line[cmd_count + 1] == '|')) {
-                free(commands);
-                free(cmd_separators);
-                fprintf(stderr, "Unrecognized separator");
-                return NULL;
+            if (line[i] != ';') {
+                line[i + 1] = ' '; // replaces the second character of logical operator
             }
+            cmd_separators[cmd_count - 1] = line[i];
+            line[i] = '\0';
+            curr_cmd_start = line + i + 1;
+            commands[cmd_count] = curr_cmd_start;
+            cmd_count++;
+        } else if (line[cmd_count + 1] != line[cmd_count] &&
+                   (line[cmd_count + 1] == '&' || line[cmd_count + 1] == '|')) {
+            free(commands);
+            free(cmd_separators);
+            fprintf(stderr, "Unrecognized operator");
+            return NULL;
         }
         if (cmd_count >= allocated) {
-            char **new_commands = realloc(commands, (allocated * 2) * sizeof(char*));
+            char **new_commands = realloc(commands, (allocated * 2) * sizeof(char *));
             if (new_commands == NULL) {
                 free(commands);
                 free(cmd_separators);
@@ -145,7 +139,6 @@ struct cmd_sequence *line_split(char *line) // splits line on `;`, `&&` and `||`
     sequence->commands = commands;
     sequence->separators = cmd_separators;
     return sequence;
-
 }
 
 char **split_command(char *line) // only splits on whitespace for now (no quotes...)
