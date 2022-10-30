@@ -100,12 +100,6 @@ struct cmd_sequence *line_split(char *line) // splits line on `;`, `&&` and `||`
             curr_cmd_start = line + i + 1;
             commands[cmd_count] = curr_cmd_start;
             cmd_count++;
-        } else if (line[cmd_count + 1] != line[cmd_count] &&
-                   (line[cmd_count + 1] == '&' || line[cmd_count + 1] == '|')) {
-            free(commands);
-            free(cmd_separators);
-            fprintf(stderr, "Unrecognized operator");
-            return NULL;
         }
         if (cmd_count >= allocated) {
             char **new_commands = realloc(commands, (allocated * 2) * sizeof(char *));
@@ -230,7 +224,14 @@ void sh_loop()
 
 
         size_t i = 0;
+        bool skip_next_cmd = false;
+
         while (sequence->commands[i] != NULL) {
+            if (skip_next_cmd) {
+                skip_next_cmd = false;
+                i++;
+                continue;
+            }
             char **args = split_command(sequence->commands[i]);
             if (args == NULL) {
                 free_cmd_sequence(sequence);
@@ -239,14 +240,15 @@ void sh_loop()
             }
             int exec_ret = sh_execute(args);
             free(args);
+
             if (exec_ret == -1) {
                 free(line);
                 free_cmd_sequence(sequence);
                 return;
             }
-            if ((exec_ret == 1 && sequence->separators[i] == '&') ||
-            (exec_ret == 0 && sequence->separators[i] == '|')) {
-                break;
+            if (sequence->commands[i + 1] != NULL &&     // if next command is null separators[i] would be out of bounds
+            ((exec_ret == 1 && sequence->separators[i] == '&') || (exec_ret == 0 && sequence->separators[i] == '|'))) {
+                skip_next_cmd = true;
             }
             i++;
         }
