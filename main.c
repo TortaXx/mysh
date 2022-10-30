@@ -15,6 +15,18 @@ struct builtin_pair {
     int (*fun)(char **args);
 };
 
+struct cmd_sequence {
+    char **commands;
+    char *separators;
+};
+
+void free_cmd_sequence(struct cmd_sequence *sequence)
+{
+    free(sequence->commands);
+    free(sequence->separators);
+    free(sequence);
+}
+
 struct builtin_pair builtin_dict[BUILTIN_COUNT] = {
         { "cd", &cd_builtin },
         { "exit", &exit_builtin },
@@ -59,7 +71,84 @@ char *read_line(bool *eof_entered)
     return buffer;
 }
 
-char **line_split(char *line) // only splits on whitespace for now (no quotes...)
+struct cmd_sequence *line_split(char *line) // splits line on `;`, `&&` and `||`
+{
+    char **commands = malloc(sizeof(char*) * 2);
+    if (commands == NULL) {
+        fprintf(stderr, "Allocation error");
+        return NULL;
+    }
+    char *cmd_separators = malloc(sizeof(char) * 2);
+    if (cmd_separators == NULL) {
+        fprintf(stderr, "Allocation error");
+        free(commands);
+        return NULL;
+    }
+    char *curr_cmd_start = line;
+    commands[0] = curr_cmd_start;
+    size_t i = 0;
+    size_t cmd_count = 1;
+    size_t allocated = 2;
+    while (line[i] != '\0') {
+        if (((line[i] == '&' || line[i] == '|') && line[i + 1] != '\0') ||
+            line[i] == ';') {
+            if (line[i + 1] == line[i]) {
+                cmd_separators[cmd_count - 1] = line[i];
+                line[i] = '\0';
+                line[i + 1] = ' ';
+                curr_cmd_start = line + i + 1;
+                commands[cmd_count] = curr_cmd_start;
+                cmd_count++;
+            } else if (line[i] == ';') {
+                cmd_separators[cmd_count - 1] = line[i];
+                line[i] = '\0';
+                curr_cmd_start = line + i + 1;
+                commands[cmd_count] = curr_cmd_start;
+                cmd_count++;
+            } else if (line[cmd_count + 1] != line[cmd_count] &&
+                (line[cmd_count + 1] == '&' || line[cmd_count + 1] == '|')) {
+                free(commands);
+                free(cmd_separators);
+                fprintf(stderr, "Unrecognized separator");
+                return NULL;
+            }
+        }
+        if (cmd_count >= allocated) {
+            char **new_commands = realloc(commands, (allocated * 2) * sizeof(char*));
+            if (new_commands == NULL) {
+                free(commands);
+                free(cmd_separators);
+                fprintf(stderr, "Allocation error");
+                return NULL;
+            }
+            commands = new_commands;
+            char *new_cmd_separators = realloc(cmd_separators, (allocated * 2) * sizeof(char));
+            if (new_cmd_separators == NULL) {
+                free(new_commands);
+                free(cmd_separators);
+                fprintf(stderr, "Allocation error");
+                return NULL;
+            }
+            cmd_separators = new_cmd_separators;
+            allocated *= 2;
+        }
+        i++;
+    }
+    struct cmd_sequence *sequence = malloc(sizeof(struct cmd_sequence));
+    if (sequence == NULL) {
+        free(commands);
+        free(cmd_separators);
+        return NULL;
+    }
+    commands[cmd_count] = NULL;
+    cmd_separators[cmd_count] = '\0';
+    sequence->commands = commands;
+    sequence->separators = cmd_separators;
+    return sequence;
+
+}
+
+char **split_command(char *line) // only splits on whitespace for now (no quotes...)
 {
     char **words = malloc(sizeof(char*) * BUFF_SIZE);
     if (words == NULL) {
@@ -87,7 +176,8 @@ char **line_split(char *line) // only splits on whitespace for now (no quotes...
         word = strtok(NULL, " \t\n");
     }
     words[position] = NULL; // exec calls require arg array to end with NULL pointer
-    return words;
+
+    return (words[0] == NULL) ? NULL : words;
 }
 
 int sh_run_command(char **args)
@@ -139,16 +229,39 @@ void sh_loop()
         if (eof_entered) {
             putchar('\n');
         }
-        char **args = line_split(line);
-        if (args == NULL) {
+        struct cmd_sequence *sequence = line_split(line);
+        if (sequence == NULL) {
             free(line);
             return;
         }
-        int exec_ret = sh_execute(args);
+
+
+        size_t i = 0;
+        while (sequence->commands[i] != NULL) {
+            char **args = split_command(sequence->commands[i]);
+            if (args == NULL) {
+                free_cmd_sequence(sequence);
+                free(line);
+                return;
+            }
+            int exec_ret = sh_execute(args);
+            free(args);
+            if (exec_ret == -1) {
+                free(line);
+                free_cmd_sequence(sequence);
+                return;
+            }
+            if ((exec_ret == 1 && sequence->separators[i] == '&') ||
+            (exec_ret == 0 && sequence->separators[i] == '|')) {
+                break;
+            }
+            i++;
+        }
 
         free(line);
-        free(args);
-        if (eof_entered || exec_ret == -1) {
+        free_cmd_sequence(sequence);
+
+        if (eof_entered) {
             return;
         }
     }
