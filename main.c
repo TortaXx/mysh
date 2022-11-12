@@ -177,6 +177,8 @@ int sh_run_command(char **args)
 
 int sh_execute(char **args)
 {
+    extern struct builtin_pair builtin_dict[BUILTIN_COUNT];
+
     for (int i = 0; i < BUILTIN_COUNT; i++) {
         if (strcmp(args[0], builtin_dict[i].name) == 0) {
             return builtin_dict[i].fun(args);
