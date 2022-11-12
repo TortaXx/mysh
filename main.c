@@ -179,7 +179,7 @@ int sh_run_command(char **args)
         if (execvp(args[0], args) == -1) {
             perror("mysh");
         }
-        return -1;
+        return -1; // How did we get here?
     } else {
         waitpid(pid, &wait_status, WUNTRACED);
     }
@@ -220,14 +220,11 @@ void sh_loop()
             return;
         }
 
-
-        size_t i = 0;
         bool skip_next_cmd = false;
 
-        while (sequence->commands[i] != NULL) {
+        for (size_t i = 0; sequence->commands[i] != NULL; i++) {
             if (skip_next_cmd) {
                 skip_next_cmd = false;
-                i++;
                 continue;
             }
             char **args = split_command(sequence->commands[i]);
@@ -244,11 +241,10 @@ void sh_loop()
                 free_cmd_sequence(sequence);
                 return;
             }
-            if (sequence->commands[i + 1] != NULL &&     // if next command is null separators[i] would be out of bounds
-            ((exec_ret == 1 && sequence->separators[i] == '&') || (exec_ret == 0 && sequence->separators[i] == '|'))) {
+            if (sequence->commands[i + 1] != NULL &&     // if next command is null, separators[i] would be out of bounds
+                ((exec_ret == 1 && sequence->separators[i] == '&') || (exec_ret == 0 && sequence->separators[i] == '|'))) {
                 skip_next_cmd = true;
             }
-            i++;
         }
 
         free(line);
