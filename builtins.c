@@ -51,5 +51,16 @@ int pwd_builtin(char **args)
     printf("%s\n", buffer);
     free(buffer);
     return 0;
+}
 
+int true_builtin(char **args)
+{
+    UNUSED(args);
+    return 0;
+}
+
+int false_builtin(char **args)
+{
+    UNUSED(args);
+    return 1;
 }
