@@ -10,11 +10,6 @@
 #define BUFF_SIZE 512
 
 
-struct builtin_pair {
-    const char *name;
-    int (*fun)(char **args);
-};
-
 struct cmd_sequence {
     char **commands;
     char *separators;
@@ -26,12 +21,6 @@ void free_cmd_sequence(struct cmd_sequence *sequence)
     free(sequence->separators);
     free(sequence);
 }
-
-struct builtin_pair builtin_dict[BUILTIN_COUNT] = {
-        { "cd", &cd_builtin },
-        { "exit", &exit_builtin },
-        {"pwd", &pwd_builtin},
-};
 
 char *read_line(bool *eof_entered)
 {
